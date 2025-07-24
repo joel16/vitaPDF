@@ -38,6 +38,7 @@ namespace GUI {
 
     void DarkTheme(void) {
         ImVec4 *colors = ImGui::GetStyle().Colors;
+        ImGui::GetStyle().ScrollbarSize = 16.0f;
 
         // style->FrameRounding = 4.0f;
         // style->GrabRounding = 4.0f;
