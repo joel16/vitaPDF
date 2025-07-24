@@ -52,6 +52,7 @@ namespace Windows {
         };
         
         DB::Save(entry);
+        data.resetScroll = true;
         return true;
     }
     

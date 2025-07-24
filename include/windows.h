@@ -31,6 +31,7 @@ typedef struct {
     float zoom_factor = 1.0f;
     SDL_Gamepad *gamepad;
     Book book;
+    bool resetScroll;
 } WindowData;
 
 extern int sort;

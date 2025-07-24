@@ -33,6 +33,12 @@ namespace Windows {
             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar | fileNameFlag;
             
         if (ImGui::Begin(window_title, nullptr, window_flags)) {
+            if (data.resetScroll) {
+                ImGui::SetScrollX(0.0f);
+                ImGui::SetScrollY(0.0f);
+                data.resetScroll = false;
+            }
+
             ImVec2 image_size = ImVec2(data.book.width * data.book.zoom, data.book.height * data.book.zoom);
             ImVec2 region = ImGui::GetContentRegionAvail();
             
