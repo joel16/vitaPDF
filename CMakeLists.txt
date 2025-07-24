@@ -13,7 +13,7 @@ project(vitaPDF)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
 set(VITA_APP_NAME "vitaPDF")
-set(VITA_TITLEID "vitaPDF16")
+set(VITA_TITLEID "VITAPDF16")
 set(VITA_VERSION "01.00")
 
 add_definitions(-DAPP_VERSION="${VITA_VERSION}")
