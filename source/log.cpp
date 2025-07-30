@@ -5,23 +5,23 @@
 #include "utils.h"
 
 namespace Log {
-    static SceUID log_file = 0;
+    static SceUID logHandle = 0;
 
     void Init(void) {
-        constexpr char log_path[] = "ux0:data/vitaPDF/debug.log";
+        constexpr char logPath[] = "ux0:data/vitaPDF/debug.log";
 
-        if (!FS::FileExists(log_path)) {
-            FS::CreateFile(log_path);
+        if (!FS::FileExists(logPath)) {
+            FS::CreateFile(logPath);
         }
             
-        if (R_FAILED(log_file = sceIoOpen(log_path, SCE_O_WRONLY | SCE_O_APPEND, 0))) {
+        if (R_FAILED(logHandle = sceIoOpen(logPath, SCE_O_WRONLY | SCE_O_APPEND, 0))) {
             return;
         }
     }
 
     void Exit(void) {
-        if (R_FAILED(sceIoClose(log_file))) {
-            return;
+        if (logHandle) {
+            sceIoClose(logHandle);
         }
     }
     
@@ -36,7 +36,7 @@ namespace Log {
         error_string.append(buf);
         
         sceClibPrintf("%s", error_string.c_str());
-        if (R_FAILED(sceIoWrite(log_file, error_string.data(), error_string.length()))) {
+        if (R_FAILED(sceIoWrite(logHandle, error_string.data(), error_string.length()))) {
             return;
         }
     }

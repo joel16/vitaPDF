@@ -40,9 +40,6 @@ namespace GUI {
         ImVec4 *colors = ImGui::GetStyle().Colors;
         ImGui::GetStyle().ScrollbarSize = 16.0f;
 
-        // style->FrameRounding = 4.0f;
-        // style->GrabRounding = 4.0f;
-
         colors[ImGuiCol_Text]                   = ImVec4(1, 1, 1, 1);
         colors[ImGuiCol_TextDisabled]           = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
         colors[ImGuiCol_WindowBg]               = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
@@ -159,9 +156,6 @@ namespace GUI {
         ImGuiIO& io = ImGui::GetIO(); (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
         io.IniFilename = nullptr;
-        
-        // Setup Dear ImGui style
-        //ImGui::StyleColorsDark();
 
         ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
         ImGui_ImplSDLRenderer3_Init(renderer);
@@ -244,7 +238,7 @@ namespace GUI {
             Windows::MainWindow(data);
             Renderer::End(io, clear_color, renderer);
         }
-        
+
         if (data.gamepad) {
             SDL_CloseGamepad(data.gamepad);
         }

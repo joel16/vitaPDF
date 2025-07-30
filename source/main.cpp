@@ -32,7 +32,7 @@ namespace Services {
         Reader::Exit();
         Utils::EndAppUtil();
         Textures::Exit();
-        Log::Exit();
+        // Log::Exit();
         
         sceSysmoduleUnloadModule(SCE_SYSMODULE_JSON);
         GUI::Exit();
