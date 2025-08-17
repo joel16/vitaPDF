@@ -76,6 +76,7 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     mupdf
     mupdf-third
+    harfbuzz
     freetype
     bz2
     lzma
