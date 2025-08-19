@@ -20,4 +20,5 @@ namespace Reader {
     void ResetPosition(const Book& book);
     void RenderPage(Book &book);
     void SetZoom(Book &book, float value);
+    void SetOrientation(Book &book, float angle);
 }
