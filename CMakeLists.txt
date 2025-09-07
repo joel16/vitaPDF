@@ -14,7 +14,7 @@ include("${VITASDK}/share/vita.cmake" REQUIRED)
 
 set(VITA_APP_NAME "vitaPDF")
 set(VITA_TITLEID "VITAPDF16")
-set(VITA_VERSION "01.00")
+set(VITA_VERSION "01.01")
 
 add_definitions(-DAPP_VERSION="${VITA_VERSION}")
 add_definitions(
