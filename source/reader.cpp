@@ -99,6 +99,10 @@ namespace Reader {
             return;
         }
 
+        if (entry.zoom != 0) {
+            book.zoom = entry.zoom;
+        }
+
         SDL_GetRenderViewport(GUI::GetRenderer(), &viewport);
         Reader::RenderPage(book);
     }
