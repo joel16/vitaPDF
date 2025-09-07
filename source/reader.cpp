@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include <mupdf/fitz.h>
+
 #include "db.h"
 #include "gui.h"
 #include "log.h"
@@ -8,18 +8,12 @@
 namespace Reader {
     static fz_context *ctx = nullptr;
     static fz_document *doc = nullptr;
+    static fz_display_list *cachedDisplayList = nullptr;
+    static int cachedPageNum = -1;
     static SDL_Rect viewport;
     static fz_rect pageBounds = fz_empty_rect;
     static fz_point pageCenter = fz_make_point(0.f, 0.f);
     static pthread_mutex_t mutex[FZ_LOCK_MAX];
-
-    struct RenderData {
-        fz_context *ctx;
-        fz_display_list *list;
-        fz_matrix ctm;
-        fz_rect bounds;
-        fz_pixmap *pix;
-    };
 
     // Lock callbacks
     static void lock_mutex(void *user, int lock) {
@@ -52,6 +46,12 @@ namespace Reader {
     }
 
     void Exit(void) {
+        if (cachedDisplayList) {
+            fz_drop_display_list(ctx, cachedDisplayList);
+            cachedDisplayList = nullptr;
+            cachedPageNum = -1;
+        }
+        
         if (doc) {
             fz_drop_document(ctx, doc);
         }
@@ -110,12 +110,18 @@ namespace Reader {
         fz_device *device = fz_new_draw_device(tctx, data->ctm, data->pix);
         fz_run_display_list(tctx, data->list, device, fz_identity, data->bounds, nullptr);
         fz_drop_device(tctx, device);
-
+        
+        SDL_Event event;
+        SDL_zero(event);
+        event.type = GUI::GetRenderEventId();
+        event.user.data1 = data;
+        SDL_PushEvent(&event);
+        
         fz_drop_context(tctx);
-        return arg;
+        return nullptr;
     }
 
-    static void CreatePageTexture(Book &book, fz_pixmap *pix) {
+    void CreatePageTexture(Book &book, fz_pixmap *pix) {
         if (!pix || !pix->samples) {
             return;
         }
@@ -149,55 +155,58 @@ namespace Reader {
     }
     
     void RenderPage(Book &book) {
-        fz_page *page = fz_load_page(ctx, doc, book.pageNumber);
-        
-        // Get original page bounds
-        fz_rect bounds = fz_bound_page(ctx, page);
-        pageBounds = bounds;
-
-        // Build display list
-        fz_display_list *list = fz_new_display_list(ctx, bounds);
-        fz_device *device = fz_new_list_device(ctx, list);
-        fz_run_page(ctx, page, device, fz_identity, nullptr);
-        fz_drop_device(ctx, device);
-        fz_drop_page(ctx, page);
+        if (book.pageNumber != cachedPageNum) {
+            // Drop the old cached list if it exists
+            if (cachedDisplayList) {
+                fz_drop_display_list(ctx, cachedDisplayList);
+                cachedDisplayList = nullptr;
+            }
+            
+            // We will only run this once per page
+            fz_page *page = fz_load_page(ctx, doc, book.pageNumber);
+            
+            // Get original page bounds and cache them
+            fz_rect bounds = fz_bound_page(ctx, page);
+            pageBounds = bounds;
+            
+            // Build the new display list
+            fz_display_list *list = fz_new_display_list(ctx, bounds);
+            fz_device *device = fz_new_list_device(ctx, list);
+            fz_run_page(ctx, page, device, fz_identity, nullptr);
+            fz_drop_device(ctx, device);
+            fz_drop_page(ctx, page);
+            
+            // Store the new list and page number in our cache
+            cachedDisplayList = list;
+            cachedPageNum = book.pageNumber;
+        }
         
         // Apply zoom and rotation
         fz_matrix ctm = fz_scale(book.zoom, book.zoom);
         ctm = fz_pre_rotate(ctm, book.rotate);
         
         // Calculate bounding box for the zoomed page
-        fz_rect transformed = fz_transform_rect(bounds, ctm);
+        fz_rect transformed = fz_transform_rect(pageBounds, ctm);
         fz_irect bbox = fz_round_rect(transformed);
         
         // Create pixmap for the full page
         fz_pixmap *pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), bbox, nullptr, 0);
         fz_clear_pixmap_with_value(ctx, pix, 0xFF);
         
-        RenderData data;
-        data.ctx = ctx;
-        data.list = list;
-        data.ctm = ctm;
-        data.bounds = bounds;
-        data.pix = pix;
+        RenderData *data = new RenderData();
+        data->ctx = ctx;
+        data->list = cachedDisplayList; // Cached list
+        data->ctm = ctm;
+        data->bounds = pageBounds; // The original cached bounds
+        data->pix = pix;
         
-        pthread_t tid;
-        pthread_create(&tid, nullptr, RenderThread, &data);
-        pthread_join(tid, (void **)&data);
-        
-        Reader::CreatePageTexture(book, pix);
-        book.width = pix->w;
-        book.height = pix->h;
-
-        // Center position after rendering
-        pageCenter.x = book.width / 2.0f;
-        pageCenter.y = book.height / 2.0f;
-        
-        fz_drop_pixmap(ctx, pix);
-        fz_drop_display_list(ctx, list);
+        // We'll create the thread and detatch it. The main loop will get the SDL_Event when the thread is done.
+        pthread_t thread;
+        pthread_create(&thread, nullptr, Reader::RenderThread, data);
+        pthread_detach(thread);
     }
 
-    static void MovePage(Book &book, float x, float y) {
+    void MovePage(Book &book, float x, float y) {
         float halfViewportW = viewport.w / 2.0f;
         float halfViewportH = viewport.h / 2.0f;
         float halfPageW     = book.width  / 2.0f;
@@ -241,12 +250,6 @@ namespace Reader {
             }
         }
     }
-
-    void SetZoom(Book &book, float value) {
-        book.zoom = value;
-        Reader::RenderPage(book);
-        Reader::MovePage(book, 0.f, 0.f);
-    }
     
     void SetOrientation(Book &book, float angle) {
         book.rotate = angle;
@@ -259,5 +262,14 @@ namespace Reader {
             ((pageBounds.x1 - pageBounds.x0) * book.zoom) / 2.f,
             ((pageBounds.y1 - pageBounds.y0) * book.zoom) / 2.f
         );
+    }
+    
+    void UpdateZoom(float old_zoom, float new_zoom) {
+        if (old_zoom == 0.f || old_zoom == new_zoom) {
+            return;
+        }
+        
+        pageCenter.x = (pageCenter.x / old_zoom) * new_zoom;
+        pageCenter.y = (pageCenter.y / old_zoom) * new_zoom;
     }
 }

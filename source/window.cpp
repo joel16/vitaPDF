@@ -11,6 +11,10 @@
 #include "windows.h"
 
 namespace Windows {
+    static bool isZooming = false;
+    static float zoomReleaseTimer = 0.0f;
+    const float ZOOM_RENDER_DELAY = 0.3f;
+
     void SetupWindow(void) {
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Once);
         ImGui::SetNextWindowSize(ImVec2(960.0f, 544.0f), ImGuiCond_Once);
@@ -66,9 +70,23 @@ namespace Windows {
         const float deadzone = 0.2f;
         
         if (std::fabs(value) > deadzone) {
+            isZooming = true;
+            zoomReleaseTimer = ZOOM_RENDER_DELAY;
+            
             float zoomSpeed = 0.5f * ImGui::GetIO().DeltaTime;
             float newZoom = data.book.zoom - value * zoomSpeed;
-            Reader::SetZoom(data.book, newZoom);
+            float old_zoom = data.book.zoom;
+            data.book.zoom = newZoom;
+            
+            Reader::UpdateZoom(old_zoom, newZoom);
+            Reader::MovePage(data.book, 0.f, 0.f);
+        }
+        else if (isZooming) {
+            zoomReleaseTimer -= ImGui::GetIO().DeltaTime;
+            if (zoomReleaseTimer <= 0.0f) {
+                isZooming = false;
+                Reader::RenderPage(data.book);
+            }
         }
     }
 

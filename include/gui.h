@@ -7,6 +7,7 @@ namespace GUI {
     SDL_Window *GetWindow(void);
     void DarkTheme(void);
     void LightTheme(void);
+    Uint32 GetRenderEventId(void);
     int Init(void);
     void Exit(void);
     int RenderLoop(void);

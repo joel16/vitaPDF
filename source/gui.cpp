@@ -4,6 +4,7 @@
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
 #include "log.h"
+#include "reader.h"
 #include "utils.h"
 #include "windows.h"
 
@@ -27,6 +28,7 @@ namespace GUI {
     static SDL_Window *window;
     static SDL_Renderer *renderer;
     static const ImVec4 accent = ImVec4(0.44f, 0.76f, 0.94f, 1.0f);
+    static Uint32 renderCompleteEventId = 0;
 
     SDL_Renderer *GetRenderer(void) {
         return renderer;
@@ -168,6 +170,7 @@ namespace GUI {
         io.Fonts->AddFontFromFileTTF("sa0:/data/font/pvf/jpn0.pvf", 20.0f, std::addressof(font_config));
 
         cfg.darkTheme? GUI::DarkTheme() : GUI::LightTheme();
+        renderCompleteEventId = SDL_RegisterEvents(1);
         return 0;
     }
 
@@ -179,6 +182,10 @@ namespace GUI {
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
+    }
+    
+    Uint32 GetRenderEventId(void) {
+        return renderCompleteEventId;
     }
 
     int RenderLoop(void) {
@@ -209,24 +216,37 @@ namespace GUI {
             while (SDL_PollEvent(&event)) {
                 ImGui_ImplSDL3_ProcessEvent(&event);
 
-                switch (event.type) {
-                    case SDL_EVENT_QUIT:
-                        done = true;
-                        break;
-
-                    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                        if (event.window.windowID == SDL_GetWindowID(window)) {
+                if (event.type == GUI::GetRenderEventId()) {
+                    RenderData *renderData = static_cast<RenderData *>(event.user.data1);
+                    Reader::CreatePageTexture(data.book, renderData->pix);
+                    
+                    data.book.width = renderData->pix->w;
+                    data.book.height = renderData->pix->h;
+                    
+                    Reader::MovePage(data.book, 0.f, 0.f);
+                    fz_drop_pixmap(renderData->ctx, renderData->pix);
+                    delete renderData;
+                }
+                else {
+                    switch (event.type) {
+                        case SDL_EVENT_QUIT:
                             done = true;
-                        }
-                        break;
+                            break;
                         
-                    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-                        Windows::HandleInput(data, event);
-
-                        if (event.gbutton.button == SDL_GAMEPAD_BUTTON_START) {
-                            done = true;
-                        }
-                        break;
+                        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+                            if (event.window.windowID == SDL_GetWindowID(window)) {
+                                done = true;
+                            }
+                            break;
+                    
+                        case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+                            Windows::HandleInput(data, event);
+                            
+                            if (event.gbutton.button == SDL_GAMEPAD_BUTTON_START) {
+                                done = true;
+                            }
+                            break;
+                    }
                 }
             }
 
