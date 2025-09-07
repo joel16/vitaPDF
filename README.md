@@ -15,7 +15,8 @@ A simple homebrew file browser that is used for viewing various documents on the
 - GUI:
   - Supports dark/light theme modes.
   - Has a toggle for displaying title bar.
-- Automatically saves page state via sqlite database. (Moving the pdf/book to another location will lose it's page state at the moment)
+- Automatically saves page state. (Moving the pdf/book to another location will lose it's page state at the moment)
+- Automatically saves zoom state after navigating pages. (Moving the pdf/book to another location will lose it's page state at the moment)
 - Supports reading the following formats:
   - CBT
   - CBZ
