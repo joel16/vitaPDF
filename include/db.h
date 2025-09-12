@@ -2,9 +2,9 @@
 
 struct BookEntry {
     const char *path;
-    int page;
-    float zoom;
-    float rotate;
+    int page = 0;
+    float zoom = 1.0f;
+    float rotate = 0.0f;
 };
 
 namespace DB {

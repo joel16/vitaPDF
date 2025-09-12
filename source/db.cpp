@@ -10,28 +10,31 @@ namespace DB {
         sqlite3 *db = nullptr;
         char *error = nullptr;
 
-        bool dbExists = FS::FileExists(dbPath);
-
         int ret = sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
         if (ret != SQLITE_OK) {
-            Log::Error("sqlite3_open_v2 failed to open %s\n", dbPath);
+            Log::Error("sqlite3_open_v2 failed to open %s: %s\n", dbPath, sqlite3_errmsg(db));
+            
+            if (db) {
+                sqlite3_close(db);
+            }
+
             return ret;
         }
-
-        if (!dbExists) {
-            const char *createTableSql =
-                "CREATE TABLE IF NOT EXISTS books ("
-                "    path TEXT PRIMARY KEY,"
-                "    page INTEGER NOT NULL,"
-                "    zoom REAL,"
-                "    rotate REAL"
-                ");";
-
-            ret = sqlite3_exec(db, createTableSql, nullptr, nullptr, &error);
-            if (ret != SQLITE_OK) {
-                Log::Error("sqlite3_exec failed %s\n", dbPath);
-                return ret;
-            }
+        
+        const char *createTableSql =
+            "CREATE TABLE IF NOT EXISTS books ("
+            "    path TEXT PRIMARY KEY,"
+            "    page INTEGER NOT NULL,"
+            "    zoom REAL,"
+            "    rotate REAL"
+            ");";
+            
+        ret = sqlite3_exec(db, createTableSql, nullptr, nullptr, &error);
+        if (ret != SQLITE_OK) {
+            Log::Error("sqlite3_exec (CREATE TABLE) failed: %s\n", error);
+            sqlite3_free(error);
+            sqlite3_close(db);
+            return ret;
         }
         
         const char *insertSql =
@@ -42,17 +45,22 @@ namespace DB {
         sqlite3_stmt *stmt;
         ret = sqlite3_prepare_v2(db, insertSql, -1, &stmt, nullptr);
         if (ret != SQLITE_OK) {
-            Log::Error("sqlite3_prepare_v2(%s) failed %s\n", dbPath, sqlite3_errmsg(db));
+            Log::Error("sqlite3_prepare_v2 failed: %s\n", sqlite3_errmsg(db));
             sqlite3_close(db);
             return -3;
         }
         
-        sqlite3_bind_text(stmt, 1, entry.path, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 1, entry.path, -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmt, 2, entry.page);
         sqlite3_bind_double(stmt, 3, entry.zoom);
         sqlite3_bind_double(stmt, 4, entry.rotate);
         
         ret = sqlite3_step(stmt);
+        
+        if (ret != SQLITE_DONE) {
+            Log::Error("sqlite3_step failed: %s\n", sqlite3_errmsg(db));
+        }
+
         sqlite3_finalize(stmt);
         sqlite3_close(db);
         
@@ -69,25 +77,26 @@ namespace DB {
         sqlite3_stmt *stmt = nullptr;
         int page = -1;
         
-        if (!FS::FileExists(dbPath)) {
-            return -1;
-        }
-        
         int ret = sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nullptr);
         if (ret != SQLITE_OK) {
-            Log::Error("sqlite3_open_v2 failed to open %s\n", dbPath);
+            Log::Error("sqlite3_open_v2 failed to open %s: %s\n", dbPath, sqlite3_errmsg(db));
+
+            if (db) {
+                sqlite3_close(db);
+            }
+            
             return -1;
         }
         
         const char *selectSql = "SELECT page, zoom, rotate FROM books WHERE path = ?;";
         ret = sqlite3_prepare_v2(db, selectSql, -1, &stmt, nullptr);
         if (ret != SQLITE_OK) {
-            Log::Error("sqlite3_prepare_v2(%s) failed %s\n", dbPath, sqlite3_errmsg(db));
+            Log::Error("sqlite3_prepare_v2 failed: %s\n", sqlite3_errmsg(db));
             sqlite3_close(db);
             return -1;
         }
         
-        sqlite3_bind_text(stmt, 1, path, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 1, path, -1, SQLITE_TRANSIENT);
         
         ret = sqlite3_step(stmt);
         if (ret == SQLITE_ROW) {
