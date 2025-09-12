@@ -6,6 +6,7 @@
 #include <psp2/kernel/clib.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/rtc.h>
+#include <pthread.h>
 //#include <unistd.h>
 
 #define MAXPATHNAME 512
@@ -35,6 +36,8 @@ struct PSP2File {
     int nBuffer = 0;                    /* Valid bytes of data in zBuffer */
     sqlite3_int64 iBufferOfst = 0;      /* Offset in file of zBuffer[0] */
 };
+
+static pthread_mutex_t psp2mutex;
 
 /*
 ** Write directly to the file passed as the first argument. Even if the
@@ -234,10 +237,12 @@ static int psp2FileSize(sqlite3_file *pFile, sqlite_int64 *pSize) {
 ** file is found in the file-system it is rolled back.
 */
 static int psp2Lock(sqlite3_file *pFile, int eLock) {
-    return SQLITE_OK;
+    int rc = pthread_mutex_lock(&psp2mutex);
+    return (rc == 0) ? SQLITE_OK : SQLITE_BUSY;
 }
 
 static int psp2Unlock(sqlite3_file *pFile, int eLock) {
+    pthread_mutex_unlock(&psp2mutex);
     return SQLITE_OK;
 }
 
@@ -391,20 +396,8 @@ static int psp2Delete(sqlite3_vfs *pVfs, const char *zPath, int dirSync) {
 ** is both readable and writable.
 */
 static int psp2Access(sqlite3_vfs *pVfs, const char *zPath, int flags, int *pResOut) {
-    int rc = 0;                     /* access() return code */
-    // int eAccess = F_OK;             /* Second argument to access() */
-    
-    // assert(flags == SQLITE_ACCESS_EXISTS       /* access(zPath, F_OK) */
-    //     || flags == SQLITE_ACCESS_READ         /* access(zPath, R_OK) */
-    //     || flags == SQLITE_ACCESS_READWRITE    /* access(zPath, R_OK|W_OK) */
-    // );
-    
-    // if (flags == SQLITE_ACCESS_READWRITE)
-    //     eAccess = R_OK|W_OK;
-    // if (flags == SQLITE_ACCESS_READ)
-    //     eAccess = R_OK;
-        
-    // rc = access(zPath, eAccess);
+    SceIoStat stat;
+    int rc = sceIoGetstat(zPath, &stat);
     *pResOut = (rc == 0);
     return SQLITE_OK;
 }
@@ -532,6 +525,13 @@ sqlite3_vfs *sqlite3_psp2vfs(void) {
 }
 
 int sqlite3_os_init(void) {
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    
+    pthread_mutex_init(&psp2mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
+
     if (sqlite3_vfs_register(sqlite3_psp2vfs(), 1) != SQLITE_OK) {
         return -1;
     }
@@ -540,5 +540,6 @@ int sqlite3_os_init(void) {
 }
 
 int sqlite3_os_end(void) {
+    pthread_mutex_destroy(&psp2mutex);
     return sqlite3_vfs_unregister(sqlite3_psp2vfs());
 }
