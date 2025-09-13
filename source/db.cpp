@@ -75,7 +75,6 @@ namespace DB {
     int GetBookEntry(const char *path, BookEntry &entry) {
         sqlite3 *db = nullptr;
         sqlite3_stmt *stmt = nullptr;
-        int page = -1;
         
         int ret = sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nullptr);
         if (ret != SQLITE_OK) {
@@ -107,6 +106,6 @@ namespace DB {
         
         sqlite3_finalize(stmt);
         sqlite3_close(db);
-        return page;
+        return 0;
     }
 }

@@ -69,6 +69,18 @@ namespace Reader {
             return;
         }
         
+        if (cachedDisplayList) {
+            fz_drop_display_list(ctx, cachedDisplayList);
+            cachedDisplayList = nullptr;
+        }
+        
+        if (book.page) {
+            SDL_DestroyTexture(book.page);
+            book.page = nullptr;
+        }
+        
+        cachedPageNum = -1;
+        
         fz_try(ctx)
             doc = fz_open_document(ctx, path.c_str());
         fz_catch(ctx) {
