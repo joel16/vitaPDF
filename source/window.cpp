@@ -33,6 +33,19 @@ namespace Windows {
         }
     }
 
+    static void SaveDBEntry(WindowData& data, int page) {
+        std::string path = FS::BuildPath(data.entries[data.selected]);
+        
+        BookEntry entry = {
+            path.c_str(),
+            page,
+            data.book.zoom,
+            data.book.rotate
+        };
+        
+        DB::Save(entry);
+    }
+
     static bool NavigatePage(WindowData &data, int direction) {
         int newPage = data.book.pageNumber + direction;
         
@@ -43,19 +56,9 @@ namespace Windows {
         }
         
         data.book.pageNumber = newPage;
-        Reader::RenderPage(data.book);
+        Reader::RenderPage(data.book, RENDER_NAV);
         Reader::ResetPosition(data.book);
-
-        std::string path = FS::BuildPath(data.entries[data.selected]);
-        
-        BookEntry entry = {
-            path.c_str(),
-            newPage,
-            data.book.zoom,
-            data.book.rotate
-        };
-        
-        DB::Save(entry);
+        Windows::SaveDBEntry(data, newPage);
         data.resetScroll = true;
         return true;
     }
@@ -85,7 +88,7 @@ namespace Windows {
             zoomReleaseTimer -= ImGui::GetIO().DeltaTime;
             if (zoomReleaseTimer <= 0.0f) {
                 isZooming = false;
-                Reader::RenderPage(data.book);
+                Reader::RenderPage(data.book, RENDER_ZOOM);
             }
         }
     }
@@ -96,12 +99,8 @@ namespace Windows {
         switch (data.state) {
             case WINDOW_STATE_BOOKVIEWER:
                 if (button == SDL_GAMEPAD_BUTTON_WEST) {
-                    data.book.rotate += 90.f;
-                    if (data.book.rotate > 360.f) {
-                        data.book.rotate = 0.f;
-                    }
-                    
-                    Reader::RenderPage(data.book);
+                    Reader::ToggleOrientation(data.book);
+                    Windows::SaveDBEntry(data, data.book.pageNumber);
                 }
                 else if (button == SDL_GAMEPAD_BUTTON_EAST) {
                     Windows::ClearTextures(data);

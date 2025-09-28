@@ -69,6 +69,9 @@ namespace Reader {
             return;
         }
         
+        book.zoom = 1.0f;
+        book.rotate = 0.0f;
+        
         if (cachedDisplayList) {
             fz_drop_display_list(ctx, cachedDisplayList);
             cachedDisplayList = nullptr;
@@ -99,6 +102,9 @@ namespace Reader {
 
         BookEntry entry;
         DB::GetBookEntry(path.c_str(), entry);
+
+        Log::Error("%s: Entry zoom %f\n", __func__, entry.zoom);
+        Log::Error("%s: Entry rotate %f\n", __func__, entry.rotate);
         
         if (entry.page >= 0) {
             book.pageNumber = entry.page;
@@ -111,12 +117,16 @@ namespace Reader {
             return;
         }
 
-        if (entry.zoom != 0) {
+        if (entry.zoom != 0.0f) {
             book.zoom = entry.zoom;
         }
 
+        if (entry.rotate != 0.0f) {
+            book.rotate = entry.rotate;
+        }
+
         SDL_GetRenderViewport(GUI::GetRenderer(), &viewport);
-        Reader::RenderPage(book);
+        Reader::RenderPage(book, RENDER_NAV);
     }
 
     static void *RenderThread(void *arg) {
@@ -170,7 +180,7 @@ namespace Reader {
         SDL_DestroySurface(surface);
     }
     
-    void RenderPage(Book &book) {
+    void RenderPage(Book &book, RenderReason reason) {
         if (book.pageNumber != cachedPageNum) {
             // Drop the old cached list if it exists
             if (cachedDisplayList) {
@@ -215,6 +225,7 @@ namespace Reader {
         data->ctm = ctm;
         data->bounds = pageBounds; // The original cached bounds
         data->pix = pix;
+        data->reason = reason;
         
         // We'll create the thread and detatch it. The main loop will get the SDL_Event when the thread is done.
         pthread_t thread;
@@ -267,10 +278,9 @@ namespace Reader {
         }
     }
     
-    void SetOrientation(Book &book, float angle) {
-        book.rotate = angle;
-        Reader::RenderPage(book);
-        Reader::ResetPosition(book);
+    void ToggleOrientation(Book &book) {
+        book.rotate = (book.rotate == 0.0f) ? 270.0f : 0.0f;
+        Reader::RenderPage(book, RENDER_NAV);
     }
     
     void ResetPosition(const Book& book) {

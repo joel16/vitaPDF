@@ -222,8 +222,14 @@ namespace GUI {
                     
                     data.book.width = renderData->pix->w;
                     data.book.height = renderData->pix->h;
+
+                    if (renderData->reason == RENDER_ZOOM) {
+                        Reader::MovePage(data.book, 0.0f, 0.0f);
+                    }
+                    else {
+                        Reader::ResetPosition(data.book);
+                    }
                     
-                    Reader::MovePage(data.book, 0.f, 0.f);
                     fz_drop_pixmap(renderData->ctx, renderData->pix);
                     delete renderData;
                 }
