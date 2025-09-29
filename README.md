@@ -17,6 +17,7 @@ A simple homebrew file browser that is used for viewing various documents on the
   - Has a toggle for displaying title bar.
 - Automatically saves page state. (Moving the pdf/book to another location will lose it's page state at the moment)
 - Automatically saves zoom state after navigating pages. (Moving the pdf/book to another location will lose it's page state at the moment)
+- Automatically saves page orientation.
 - Supports reading the following formats:
   - CBT
   - CBZ
@@ -25,6 +26,12 @@ A simple homebrew file browser that is used for viewing various documents on the
   - MOBI
   - PDF
   - XPS
+
+# Controls:
+- L/R to navigate pages.
+- Square button to toggle orientation.
+- Right analog stick to zoom in/out.
+- Left analog stick/dpad to move around the view.
 
 # Credits:
 - [MuPDF](https://mupdf.com/)
